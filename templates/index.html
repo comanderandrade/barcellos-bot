@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+  <meta charset="UTF-8" />
+  <title>Status dos Produtos</title>
+  <style>
+    body { font-family: Arial, sans-serif; background: #f8f8f8; padding: 2rem; }
+    table { border-collapse: collapse; width: 100%; background: #fff; }
+    th, td { border: 1px solid #ccc; padding: 10px; font-weight: bold; text-align: left; }
+    .blue { color: blue; }
+    .green { color: green; }
+    .red { color: red; }
+    .orange { color: orange; }
+    .modal {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      padding: 15px;
+      background: #222;
+      color: #fff;
+      border-radius: 8px;
+      box-shadow: 0 0 10px rgba(0,0,0,0.5);
+      font-size: 1rem;
+      min-width: 220px;
+    }
+  </style>
+</head>
+<body>
+  <h2>Status da Atualização de Produtos</h2>
+  <div class="modal" id="modal-status">Aguardando início...</div>
+  <table>
+    <thead>
+      <tr><th>Produto</th><th>Status</th></tr>
+    </thead>
+    <tbody id="status-table-body">
+      <!-- STATUS_AQUI -->
+    </tbody>
+  </table>
+
+  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
+    integrity="sha384-rbPtU4o20CWLT+uGVzB+k6WYm9ANDrB1wK4rv59f0Y9AJrWqpF9UUe4Hcg7GQY13"
+    crossorigin="anonymous"></script>
+  <script>
+    const socket = io();
+
+    // Estado atual dos produtos: nome => status
+    const statusProdutos = {};
+
+    // Referências DOM
+    const tabelaBody = document.getElementById('status-table-body');
+    const modalStatus = document.getElementById('modal-status');
+
+    function atualizarTabela() {
+      tabelaBody.innerHTML = '';
+      for (const [nome, status] of Object.entries(statusProdutos)) {
+        const tr = document.createElement('tr');
+        const tdNome = document.createElement('td');
+        tdNome.textContent = nome;
+
+        const tdStatus = document.createElement('td');
+        tdStatus.textContent = status.toUpperCase();
+        tdStatus.className = status.toLowerCase();
+
+        tr.appendChild(tdNome);
+        tr.appendChild(tdStatus);
+        tabelaBody.appendChild(tr);
+      }
+    }
+
+    socket.on('progress', data => {
+      const nome = data.productName;
+      const status = data.step;
+
+      // Atualiza estado e tabela
+      statusProdutos[nome] = status;
+      atualizarTabela();
+
+      // Atualiza modal com o último produto e status
+      modalStatus.textContent = `Atualizando: ${nome} — Status: ${status.toUpperCase()}`;
+    });
+  </script>
+</body>
+</html>
