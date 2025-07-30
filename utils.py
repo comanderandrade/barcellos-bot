@@ -13,3 +13,10 @@ def timestamp():
 
 def formatar_html(texto):
     return html.escape(texto).replace("\n", "<br>")
+
+# utils.py
+
+def emitir_status(socketio, nome_produto, cor):
+    print(f"[{cor.upper()}] {nome_produto}")
+    if socketio:
+        socketio.emit('progress', {'productName': nome_produto, 'step': cor})

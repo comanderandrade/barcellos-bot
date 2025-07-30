@@ -2,38 +2,73 @@
 <html lang="pt-br">
 <head>
   <meta charset="UTF-8" />
-  <title>Status dos Produtos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Status dos Produtos - Barcellos Bot</title>
   <style>
-    body { font-family: Arial, sans-serif; background: #f8f8f8; padding: 2rem; }
-    table { border-collapse: collapse; width: 100%; background: #fff; }
-    th, td { border: 1px solid #ccc; padding: 10px; font-weight: bold; text-align: left; }
-    .blue { color: blue; }
-    .green { color: green; }
-    .red { color: red; }
-    .orange { color: orange; }
-    .modal {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      padding: 15px;
-      background: #222;
-      color: #fff;
+    body {
+      font-family: Arial, sans-serif;
+      padding: 2rem;
+      background-color: #f4f4f4;
+    }
+    h1 {
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      background-color: white;
       border-radius: 8px;
-      box-shadow: 0 0 10px rgba(0,0,0,0.5);
-      font-size: 1rem;
-      min-width: 220px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0,0,0,0.1);
+    }
+    th, td {
+      padding: 1rem;
+      text-align: left;
+      border-bottom: 1px solid #ddd;
+    }
+    tr:last-child td {
+      border-bottom: none;
+    }
+    .blue {
+      background-color: #cce5ff;
+    }
+    .orange {
+      background-color: #ffe5b4;
+    }
+    .green {
+      background-color: #d4edda;
+    }
+    .red {
+      background-color: #f8d7da;
+    }
+    #modal-status {
+      position: fixed;
+      top: 1rem;
+      right: 1rem;
+      background-color: #222;
+      color: #fff;
+      padding: 1rem 2rem;
+      border-radius: 8px;
+      font-weight: bold;
+      box-shadow: 0 0 15px rgba(0,0,0,0.2);
     }
   </style>
 </head>
 <body>
-  <h2>Status da Atualização de Produtos</h2>
-  <div class="modal" id="modal-status">Aguardando início...</div>
+  <h1>Status dos Produtos Processados</h1>
+
+  <div id="modal-status">Aguardando início...</div>
+
   <table>
     <thead>
-      <tr><th>Produto</th><th>Status</th></tr>
+      <tr>
+        <th>Nome do Produto</th>
+        <th>Status</th>
+      </tr>
     </thead>
     <tbody id="status-table-body">
-      <!-- STATUS_AQUI -->
+      <!-- linhas dinâmicas -->
     </tbody>
   </table>
 

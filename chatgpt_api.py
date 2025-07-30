@@ -25,10 +25,15 @@ Caso não encontre as dimensões exatas da embalagem, forneça estimativas razo�
 Inclua as dimensões e peso da embalagem nas informações de peso bruto, largura, altura e profundidade.  
 Não inclua as fontes das informações.
 Produto: {product_name}
+Codigo Universal: {codigo_universal}
+Responda apenas com as informações solicitadas, sem explicações adicionais.
 """
 
-def consultar_chatgpt(product_name):
-    prompt = PROMPT_TEMPLATE.format(product_name=product_name)
+def consultar_chatgpt(product_name, codigo_universal):
+    prompt = PROMPT_TEMPLATE.format(product_name=product_name, codigo_universal=codigo_universal)
+    print(f"Consultando ChatGPT para o produto: {product_name} (Código Universal: {codigo_universal})")
+    if not openai.api_key:
+        return "ERRO: Chave da OpenAI não configurada."
 
     try:
         response = openai.ChatCompletion.create(
