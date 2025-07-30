@@ -1,118 +1,135 @@
 <!DOCTYPE html>
-<html lang="pt-br">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
-  <title>Status dos Produtos - Barcellos Bot</title>
-  <style>
-    body {
-      font-family: Arial, sans-serif;
-      padding: 2rem;
-      background-color: #f4f4f4;
-    }
-    h1 {
-      text-align: center;
-      margin-bottom: 2rem;
-    }
-    table {
-      width: 100%;
-      border-collapse: collapse;
-      background-color: white;
-      border-radius: 8px;
-      overflow: hidden;
-      box-shadow: 0 0 10px rgba(0,0,0,0.1);
-    }
-    th, td {
-      padding: 1rem;
-      text-align: left;
-      border-bottom: 1px solid #ddd;
-    }
-    tr:last-child td {
-      border-bottom: none;
-    }
-    .blue {
-      background-color: #cce5ff;
-    }
-    .orange {
-      background-color: #ffe5b4;
-    }
-    .green {
-      background-color: #d4edda;
-    }
-    .red {
-      background-color: #f8d7da;
-    }
-    #modal-status {
-      position: fixed;
-      top: 1rem;
-      right: 1rem;
-      background-color: #222;
-      color: #fff;
-      padding: 1rem 2rem;
-      border-radius: 8px;
-      font-weight: bold;
-      box-shadow: 0 0 15px rgba(0,0,0,0.2);
-    }
-  </style>
+    <meta charset="UTF-8">
+    <title>Status dos Produtos Processados</title>
+    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 30px;
+            background-color: #f4f4f4;
+        }
+
+        h1 {
+            color: #333;
+            margin-bottom: 20px;
+        }
+
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            background: white;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+
+        th, td {
+            padding: 12px;
+            text-align: left;
+            border-bottom: 1px solid #ddd;
+            font-size: 15px;
+        }
+
+        th {
+            background-color: #fafafa;
+        }
+
+        .status-cell {
+            font-weight: bold;
+            color: white;
+            text-align: center;
+            border-radius: 6px;
+            width: 120px;
+        }
+
+        .red {
+            background-color: #e74c3c;
+        }
+
+        .blue {
+            background-color: #3498db;
+        }
+
+        .green {
+            background-color: #2ecc71;
+        }
+
+        .yellow {
+            background-color: #f1c40f;
+            color: black;
+        }
+
+        .finalizado {
+            margin-top: 20px;
+            padding: 10px;
+            background-color: #2ecc71;
+            color: white;
+            border-radius: 6px;
+            display: inline-block;
+        }
+    </style>
 </head>
 <body>
-  <h1>Status dos Produtos Processados</h1>
+    <h1>Status dos Produtos Processados</h1>
+    <table id="status-table">
+        <thead>
+            <tr>
+                <th>Nome do Produto</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody id="status-body">
+            <!-- Linhas serão adicionadas aqui -->
+        </tbody>
+    </table>
 
-  <div id="modal-status">Aguardando início...</div>
+    <div id="mensagem-final" class="finalizado" style="display: none;">
+        ✅ Processo finalizado.
+    </div>
 
-  <table>
-    <thead>
-      <tr>
-        <th>Nome do Produto</th>
-        <th>Status</th>
-      </tr>
-    </thead>
-    <tbody id="status-table-body">
-      <!-- linhas dinâmicas -->
-    </tbody>
-  </table>
+    <script>
+        const socket = io();
 
-  <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"
-    integrity="sha384-rbPtU4o20CWLT+uGVzB+k6WYm9ANDrB1wK4rv59f0Y9AJrWqpF9UUe4Hcg7GQY13"
-    crossorigin="anonymous"></script>
-  <script>
-    const socket = io();
+        socket.on('connect', () => {
+            console.log('✅ Conectado ao servidor!');
+        });
 
-    // Estado atual dos produtos: nome => status
-    const statusProdutos = {};
+        socket.on('status', (data) => {
+            console.log("📦 Produto recebido:", data);
+            adicionarOuAtualizarLinha(data.nome, data.status);
+        });
 
-    // Referências DOM
-    const tabelaBody = document.getElementById('status-table-body');
-    const modalStatus = document.getElementById('modal-status');
+        socket.on('finalizado', (data) => {
+            document.getElementById("mensagem-final").style.display = "block";
+        });
 
-    function atualizarTabela() {
-      tabelaBody.innerHTML = '';
-      for (const [nome, status] of Object.entries(statusProdutos)) {
-        const tr = document.createElement('tr');
-        const tdNome = document.createElement('td');
-        tdNome.textContent = nome;
+        function adicionarOuAtualizarLinha(nome, status) {
+            const tbody = document.getElementById("status-body");
+            let linhaExistente = Array.from(tbody.rows).find(row => row.cells[0].innerText === nome);
 
-        const tdStatus = document.createElement('td');
-        tdStatus.textContent = status.toUpperCase();
-        tdStatus.className = status.toLowerCase();
+            if (linhaExistente) {
+                linhaExistente.cells[1].innerHTML = gerarBadge(status);
+                linhaExistente.cells[1].className = `status-cell ${status}`;
+            } else {
+                let novaLinha = tbody.insertRow();
+                let cellNome = novaLinha.insertCell(0);
+                let cellStatus = novaLinha.insertCell(1);
 
-        tr.appendChild(tdNome);
-        tr.appendChild(tdStatus);
-        tabelaBody.appendChild(tr);
-      }
-    }
+                cellNome.textContent = nome;
+                cellStatus.innerHTML = gerarBadge(status);
+                cellStatus.className = `status-cell ${status}`;
+            }
+        }
 
-    socket.on('progress', data => {
-      const nome = data.productName;
-      const status = data.step;
-
-      // Atualiza estado e tabela
-      statusProdutos[nome] = status;
-      atualizarTabela();
-
-      // Atualiza modal com o último produto e status
-      modalStatus.textContent = `Atualizando: ${nome} — Status: ${status.toUpperCase()}`;
-    });
-  </script>
+        function gerarBadge(status) {
+            const icones = {
+                red: "🔴 Erro/Ignorado",
+                blue: "🔵 Verificando",
+                green: "🟢 Atualizado",
+                yellow: "🟡 Em análise"
+            };
+            return icones[status] || status;
+        }
+    </script>
 </body>
 </html>
