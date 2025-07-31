@@ -1,103 +1,109 @@
-# main.py
-import time
-import re
-from chatgpt_api import consultar_chatgpt
-from bling_api import buscar_produtos, criar_campo_personalizado, atualizar_campo_personalizado
-from utils import emitir_status
+import os
+import json
+import httpx
+import asyncio
+from typing import List
+from fastapi import FastAPI, WebSocket
+from dotenv import load_dotenv
+import uvicorn
+import logger
 
-LIMIT_PRODUTOS = 5
-SIMULAR = False
+# Importa funções agora centralizadas em utils/nome_tools
+from utils.nome_tools import limpar_nome, nome_invalido, consultar_chatgpt
 
-IGNORAR_PADROES = [
-    r"consig", r"consignado",
-    r"\b(jos[eé]|carlos|fernando|manuel|andrade|lu[ií]z|maria|paulo|silva|santos)\b"
-]
+# Inicialização do FastAPI
+app = FastAPI()
 
-def garantir_campo(nome):
+def main():
     try:
-        criar_campo_personalizado(nome)
-    except:
-        pass
+        logger.log_info("Iniciando execução principal do bot...")
 
-def deve_ignorar(nome):
-    nome_lower = nome.lower()
-    for padrao in IGNORAR_PADROES:
-        if re.search(padrao, nome_lower):
-            return True
-    return False
+        load_dotenv()
+        OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+        BLING_API_KEY = os.getenv("BLING_API_KEY")
 
-def executar_processo(socketio=None):
-    print("🚀 Iniciando processo de análise e atualização de produtos...")
-    resposta = buscar_produtos(limit=LIMIT_PRODUTOS)
-    if not resposta:
-        print("[ERRO] Nenhuma resposta recebida da API.")
-        return
+        bling_base_url = "https://www.bling.com.br/Api/v3"
+        headers_bling = {
+            "accept": "application/json",
+            "Content-Type": "application/json",
+            "Authorization": f"Bearer {BLING_API_KEY}"
+        }
 
-    produtos = resposta.get("data", [])
-    if not produtos:
-        print("[ERRO] Nenhum produto encontrado.")
-        return
+        # ========================
+        # FUNÇÕES DE UTILIDADE
+        # ========================
 
-    for produto in produtos:
-        nome = produto.get("nome", "").strip()
-        produto_id = produto.get("id")
-        codigo_universal = produto.get("gtin", "").strip()
+        async def notificar_front(ws: WebSocket, nome, cor, etapa):
+            await ws.send_json({
+                "nome": nome,
+                "cor": cor,
+                "etapa": etapa
+            })
 
-        if deve_ignorar(nome):
-            emitir_status(socketio, nome, "red")
-            continue
+        # ========================
+        # INTEGRAÇÃO COM BLING
+        # ========================
 
-        emitir_status(socketio, nome, "blue")
-        time.sleep(0.2)
+        async def buscar_produtos_bling():
+            url = f"{bling_base_url}/produtos?page=1&limit=100"
+            async with httpx.AsyncClient() as client:
+                response = await client.get(url, headers=headers_bling)
+                return response.json().get("data", [])
 
-        print(f"Consultando ChatGPT para o produto: {nome} (Código Universal: {codigo_universal})")
-        resposta = consultar_chatgpt(nome, codigo_universal)
-        if not resposta or "ERRO" in resposta:
-            emitir_status(socketio, nome, "red")
-            continue
+        async def atualizar_produto(produto_id, dados):
+            url = f"{bling_base_url}/produtos/{produto_id}"
+            payload = {"produto": dados}
+            async with httpx.AsyncClient() as client:
+                await client.put(url, headers=headers_bling, json=payload)
 
-        emitir_status(socketio, nome, "orange")
-        time.sleep(0.2)
+        # ========================
+        # WEBSOCKET
+        # ========================
 
-        modelo = resposta.get("modelo")
-        tamanho = resposta.get("tamanho")
-        genero = resposta.get("genero")
-        peso = resposta.get("peso")
-        altura = resposta.get("altura")
-        largura = resposta.get("largura")
-        comprimento = resposta.get("comprimento")
+        @app.websocket("/ws")
+        async def websocket_endpoint(websocket: WebSocket):
+            await websocket.accept()
+            await notificar_front(websocket, "Iniciando processo...", "azul", "Carregando produtos do Bling...")
 
-        sucesso = True
+            produtos = await buscar_produtos_bling()
+            produtos_validos = []
 
-        if not SIMULAR:
-            if modelo:
-                garantir_campo("modelo")
-                sucesso &= atualizar_campo_personalizado("modelo", modelo, produto_id) is not None
-            if tamanho:
-                garantir_campo("tamanho")
-                sucesso &= atualizar_campo_personalizado("tamanho", tamanho, produto_id) is not None
-            if genero:
-                garantir_campo("genero")
-                sucesso &= atualizar_campo_personalizado("genero", genero, produto_id) is not None
+            for item in produtos:
+                produto = item.get("produto", {})
+                nome = produto.get("nome", "")
+                if nome_invalido(nome):
+                    continue
+                produtos_validos.append(produto)
 
-            atualizacoes = {}
-            if peso and peso < 0.05:
-                peso = 0.05
-            if peso:
-                atualizacoes["pesoLiq"] = peso
+            await notificar_front(websocket, "Consultando IA...", "azul", "Enviando produtos para análise do ChatGPT...")
 
-            dimensoes = {"largura": largura, "altura": altura, "profundidade": comprimento}
-            for chave, valor in dimensoes.items():
-                if valor and valor < 10:
-                    dimensoes[chave] = 10
+            resultados_corrigidos = []
+            for i in range(0, len(produtos_validos), 10):
+                lote = produtos_validos[i:i + 10]
+                corrigidos = await consultar_chatgpt(lote)
+                resultados_corrigidos.extend(corrigidos)
 
-            atualizacoes.update(dimensoes)
+            for produto in resultados_corrigidos:
+                nome = produto.get("nome", "Sem nome")
+                produto_id = produto.get("id")
 
-            if atualizacoes:
-                print(f"[🔄] Atualizando dimensões e peso do produto {nome}... → {atualizacoes}")
-                # Aqui poderá ser usado: atualizar_produto(produto_id, atualizacoes)
+                if not produto_id:
+                    await notificar_front(websocket, nome, "vermelho", "ID não encontrado, ignorando.")
+                    continue
 
-        emitir_status(socketio, nome, "green" if sucesso else "red")
-        time.sleep(0.3)
+                try:
+                    await notificar_front(websocket, nome, "amarelo", "Atualizando produto no Bling...")
+                    await atualizar_produto(produto_id, produto)
+                    await notificar_front(websocket, nome, "verde", "Atualização concluída.")
+                except Exception as e:
+                    logger.log_bling(f"Erro ao atualizar produto {nome}: {e}", level="error")
+                    await notificar_front(websocket, nome, "vermelho", "Erro ao atualizar produto.")
 
-    print("✅ Processo finalizado.")
+            await notificar_front(websocket, "Finalizado!", "verde", "Todos os produtos foram processados.")
+
+    except Exception as e:
+        logger.log_error(f"Erro fatal no bot: {e}")
+
+
+if __name__ == "__main__":
+    uvicorn.run("main:app", host="127.0.0.1", port=8000, reload=True)

@@ -1,48 +1,54 @@
 # chatgpt_api.py
 import openai
 import os
+import json
 
-# Defina sua chave da OpenAI como variável de ambiente ou insira diretamente aqui (não recomendado em produção)
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
 PROMPT_TEMPLATE = """
-Por favor, localize na internet sobre o seguinte item estas informações Requeridas (nesta ordem): 
+Você é um especialista em catalogar produtos para lojas virtuais.
 
-Marca  
-Modelo  
-Peso líquido (do produto)  
-Peso bruto (produto + embalagem)  
-Largura (do produto ou embalagem, em cm)  
-Altura (do produto ou embalagem, em cm)  
-Profundidade (do produto ou embalagem, em cm)  
-Descrição curta (até 300 caracteres)  
-Descrição longa (até 1000 caracteres)  
-Categoria (ex: Ciclismo)  
-Subcategoria (ex: Pneus de bicicleta)
+Abaixo está uma lista de produtos no formato JSON do Bling. Para cada item, retorne um novo JSON com os seguintes campos atualizados ou adicionados:
 
-Observações:  
-Caso não encontre as dimensões exatas da embalagem, forneça estimativas razoáveis.  
-Inclua as dimensões e peso da embalagem nas informações de peso bruto, largura, altura e profundidade.  
-Não inclua as fontes das informações.
-Produto: {product_name}
-Codigo Universal: {codigo_universal}
-Responda apenas com as informações solicitadas, sem explicações adicionais.
+- modelo
+- tamanho (se aplicável)
+- genero (masculino, feminino ou unissex)
+- peso (kg) → campo no Bling: pesoLiq
+- largura (cm)
+- altura (cm)
+- profundidade (cm)
+- descricao_curta (até 300 caracteres)
+- descricao_longa (até 1000 caracteres)
+- categoria
+- subcategoria
+
+OBSERVAÇÕES:
+- Nunca invente um modelo se não encontrar um real.
+- Se não encontrar uma informação, deixe o campo em branco ("").
+- Sempre retorne um JSON válido, com um array chamado "produtos".
+- Nunca inclua explicações ou texto fora do JSON.
+- Use medidas razoáveis se não houver dados exatos.
+
+Produtos:
+{json_produtos}
 """
 
-def consultar_chatgpt(product_name, codigo_universal):
-    prompt = PROMPT_TEMPLATE.format(product_name=product_name, codigo_universal=codigo_universal)
-    print(f"Consultando ChatGPT para o produto: {product_name} (Código Universal: {codigo_universal})")
+def consultar_chatgpt_lista(produtos: list):
     if not openai.api_key:
-        return "ERRO: Chave da OpenAI não configurada."
+        return {"erro": "Chave da OpenAI não configurada."}
+
+    json_produtos = json.dumps(produtos, ensure_ascii=False)
+    prompt = PROMPT_TEMPLATE.format(json_produtos=json_produtos)
 
     try:
         response = openai.ChatCompletion.create(
-            model="gpt-4",
+            model="gpt-4o",
             messages=[{"role": "user", "content": prompt}],
             temperature=0.3,
-            max_tokens=1000,
+            max_tokens=4000,
         )
-        result = response.choices[0].message.content.strip()
-        return result
+        raw_output = response.choices[0].message.content.strip()
+        data = json.loads(raw_output)
+        return data
     except Exception as e:
-        return f"ERRO: {str(e)}"
+        return {"erro": str(e)}

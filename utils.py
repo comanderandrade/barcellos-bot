@@ -16,7 +16,8 @@ def formatar_html(texto):
 
 # utils.py
 
-def emitir_status(socketio, nome_produto, cor):
-    print(f"[{cor.upper()}] {nome_produto}")
+def emitir_status(socketio, nome, cor):
     if socketio:
-        socketio.emit('progress', {'productName': nome_produto, 'step': cor})
+        socketio.emit('status', {'nome': nome, 'status': cor})
+    print(f"[STATUS] {nome} -> {cor}")
+

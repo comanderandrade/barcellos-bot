@@ -1,0 +1,6 @@
+2025-07-31 14:06:38,514 - ERROR - Erro ao interpretar resposta do ChatGPT: 'dict' object has no attribute 'choices'
+Traceback (most recent call last):
+  File "C:\barcellos-bot\utils\nome_tools.py", line 53, in consultar_chatgpt
+    content = response.choices[0].message.content
+              ^^^^^^^^^^^^^^^^
+AttributeError: 'dict' object has no attribute 'choices'

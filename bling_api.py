@@ -1,87 +1,75 @@
-import os
+# bling_api.py
 import requests
-from dotenv import load_dotenv
-from pathlib import Path
+import os
 
-# Carrega o .env de forma segura
-load_dotenv(dotenv_path=Path('.') / '.env')
+from token_manager import get_valid_access_token
 
-# Lê o token fixo do Postman
-ACCESS_TOKEN = os.getenv("BLING_ACCESS_TOKEN")
-if not ACCESS_TOKEN:
-    raise Exception("A variável BLING_ACCESS_TOKEN não foi encontrada no .env.")
-
+API_KEY = os.getenv("BLING_API_KEY")
 BASE_URL = "https://www.bling.com.br/Api/v3"
+
 HEADERS = {
-    "Authorization": f"Bearer {ACCESS_TOKEN}",
-    "Accept": "application/json"
+    "accept": "application/json",
+    "Content-Type": "application/json",
+    "Authorization": f"Bearer {API_KEY}",
 }
 
-def buscar_produtos(limit=100, pagina=1):
-    url = f"{BASE_URL}/produtos?limite={limit}&pagina={pagina}"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        if response.status_code != 200:
-            print(f"[ERRO] ({response.status_code}) - {response.text}")
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Falha ao buscar produtos: {e}")
-        return None
 
-def criar_campo_personalizado(nome, tipo="texto"):
-    url = f"{BASE_URL}/produtos/campos-personalizados"
-    payload = {"nome": nome, "tipo": tipo}
-    try:
-        response = requests.post(url, headers=HEADERS, json=payload)
-        if response.status_code != 201:
-            print(f"[ERRO] Falha ao criar campo '{nome}': {response.status_code} - {response.text}")
-        return response.status_code == 201
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Erro ao criar campo personalizado: {e}")
-        return False
+def obter_produtos_bling(limite=100):
+    get_valid_access_token()
+    url = f"{BASE_URL}/produtos?limit={limite}"
+    response = requests.get(url, headers=HEADERS)
+    if response.status_code != 200:
+        return []
 
-def buscar_campo_personalizado(nome):
-    url = f"{BASE_URL}/produtos/campos-personalizados?nome={nome}"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Erro ao buscar campo '{nome}': {e}")
-        return None
+    produtos = response.json().get("data", [])
+    resultado = []
+    for item in produtos:
+        prod = item.get("produto", {})
+        resultado.append({
+            "id": prod.get("id"),
+            "nome": prod.get("nome"),
+            "codigo": prod.get("codigo"),
+            "gtin": prod.get("gtin"),
+            "descricao": prod.get("descricao", "")
+        })
 
-def atualizar_campo_personalizado(nome, valor, produto_id):
-    url = f"{BASE_URL}/produtos/camposPersonalizados"
-    url += f"/{produto_id}/{nome}"
-    if not valor:
-        print(f"[AVISO] Valor vazio para o campo '{nome}', não será atualizado.")
-        return None
-    payload = {"nome": nome, "valor": valor}
-    try:
-        response = requests.put(url, headers=HEADERS, json=payload)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Erro ao atualizar campo '{nome}': {e}")
-        return None
+    return resultado
 
-def excluir_campo_personalizado(nome, produto_id):
-    url = f"{BASE_URL}/produtos/{produto_id}/campos-personalizados/{nome}"
-    try:
-        response = requests.delete(url, headers=HEADERS)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Erro ao excluir campo '{nome}': {e}")
-        return None
 
-def listar_campos_personalizados(produto_id):
-    url = f"{BASE_URL}/produtos/{produto_id}/campos-personalizados"
-    try:
-        response = requests.get(url, headers=HEADERS)
-        response.raise_for_status()
-        return response.json()
-    except requests.exceptions.RequestException as e:
-        print(f"[ERRO] Erro ao listar campos personalizados: {e}")
-        return None
+def atualizar_produto(id_bling, dados):
+    url = f"{BASE_URL}/produtos/{id_bling}"
+    get_valid_access_token()
+
+    payload = {
+        "produto": {
+            "pesoLiq": round(dados.get("pesoLiq", 0.05), 3),
+            "larguraProduto": int(dados.get("largura", 10)),
+            "alturaProduto": int(dados.get("altura", 10)),
+            "profundidadeProduto": int(dados.get("profundidade", 10)),
+            "descricaoCurta": dados.get("descricaoCurta", ""),
+            "descricao": dados.get("descricao", "")
+        },
+        "camposPersonalizados": []
+    }
+
+    # Adiciona campos personalizados apenas se existirem
+    if dados.get("modelo"):
+        payload["camposPersonalizados"].append({
+            "nome": "modelo",
+            "valor": dados["modelo"]
+        })
+
+    if dados.get("tamanho"):
+        payload["camposPersonalizados"].append({
+            "nome": "tamanho",
+            "valor": dados["tamanho"]
+        })
+
+    if dados.get("genero"):
+        payload["camposPersonalizados"].append({
+            "nome": "genero",
+            "valor": dados["genero"]
+        })
+
+    response = requests.put(url, headers=HEADERS, json=payload)
+    response.raise_for_status()

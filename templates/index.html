@@ -110,6 +110,8 @@
             if (linhaExistente) {
                 linhaExistente.cells[1].innerHTML = gerarBadge(status);
                 linhaExistente.cells[1].className = `status-cell ${status}`;
+                linhaExistente.cells[1].textContent = status; // Atualiza o texto do status
+                linhaExistente.cells[1].innerHTML = gerarBadge(status);
             } else {
                 let novaLinha = tbody.insertRow();
                 let cellNome = novaLinha.insertCell(0);
