@@ -2,136 +2,51 @@
 <html lang="pt-BR">
 <head>
     <meta charset="UTF-8">
-    <title>Status dos Produtos Processados</title>
-    <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            padding: 30px;
-            background-color: #f4f4f4;
-        }
-
-        h1 {
-            color: #333;
-            margin-bottom: 20px;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            background: white;
-            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
-        }
-
-        th, td {
-            padding: 12px;
-            text-align: left;
-            border-bottom: 1px solid #ddd;
-            font-size: 15px;
-        }
-
-        th {
-            background-color: #fafafa;
-        }
-
-        .status-cell {
-            font-weight: bold;
-            color: white;
-            text-align: center;
-            border-radius: 6px;
-            width: 120px;
-        }
-
-        .red {
-            background-color: #e74c3c;
-        }
-
-        .blue {
-            background-color: #3498db;
-        }
-
-        .green {
-            background-color: #2ecc71;
-        }
-
-        .yellow {
-            background-color: #f1c40f;
-            color: black;
-        }
-
-        .finalizado {
-            margin-top: 20px;
-            padding: 10px;
-            background-color: #2ecc71;
-            color: white;
-            border-radius: 6px;
-            display: inline-block;
-        }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Barcellos Bot - Processador de Produtos</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
-    <h1>Status dos Produtos Processados</h1>
-    <table id="status-table">
-        <thead>
-            <tr>
-                <th>Nome do Produto</th>
-                <th>Status</th>
-            </tr>
-        </thead>
-        <tbody id="status-body">
-            <!-- Linhas serão adicionadas aqui -->
-        </tbody>
-    </table>
+    <header>
+        <h1>Barcellos Bot - Processador de Produtos</h1>
+        <div class="auth-buttons">
+            {% if authenticated %}
+                <button id="start-btn">Iniciar Processamento (100)</button>
+                <button id="pause-btn" class="control-btn" disabled>Pausar</button>
+                <button id="resume-btn" class="control-btn" disabled>Continuar</button>
+                <a href="/logout" class="auth-link">Sair</a>
+            {% else %}
+                <a href="/login" class="auth-link">Autenticar com Bling</a>
+            {% endif %}
+        </div>
+    </header>
 
-    <div id="mensagem-final" class="finalizado" style="display: none;">
-        ✅ Processo finalizado.
-    </div>
+    <main>
+        <div id="status-modal" class="modal-hidden">
+            <p id="modal-text">Iniciando...</p>
+        </div>
+        
+        <div class="container">
+            <div class="table-container">
+                <h2>Progresso</h2>
+                <table id="products-table">
+                    <thead>
+                        <tr>
+                            <th>Produto</th>
+                            <th>Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        </tbody>
+                </table>
+            </div>
+            <div class="details-container">
+                <h2>Detalhes do Produto em Processamento</h2>
+                <pre id="product-details">Aguardando início do processamento...</pre>
+            </div>
+        </div>
+    </main>
 
-    <script>
-        const socket = io();
-
-        socket.on('connect', () => {
-            console.log('✅ Conectado ao servidor!');
-        });
-
-        socket.on('status', (data) => {
-            console.log("📦 Produto recebido:", data);
-            adicionarOuAtualizarLinha(data.nome, data.status);
-        });
-
-        socket.on('finalizado', (data) => {
-            document.getElementById("mensagem-final").style.display = "block";
-        });
-
-        function adicionarOuAtualizarLinha(nome, status) {
-            const tbody = document.getElementById("status-body");
-            let linhaExistente = Array.from(tbody.rows).find(row => row.cells[0].innerText === nome);
-
-            if (linhaExistente) {
-                linhaExistente.cells[1].innerHTML = gerarBadge(status);
-                linhaExistente.cells[1].className = `status-cell ${status}`;
-                linhaExistente.cells[1].textContent = status; // Atualiza o texto do status
-                linhaExistente.cells[1].innerHTML = gerarBadge(status);
-            } else {
-                let novaLinha = tbody.insertRow();
-                let cellNome = novaLinha.insertCell(0);
-                let cellStatus = novaLinha.insertCell(1);
-
-                cellNome.textContent = nome;
-                cellStatus.innerHTML = gerarBadge(status);
-                cellStatus.className = `status-cell ${status}`;
-            }
-        }
-
-        function gerarBadge(status) {
-            const icones = {
-                red: "🔴 Erro/Ignorado",
-                blue: "🔵 Verificando",
-                green: "🟢 Atualizado",
-                yellow: "🟡 Em análise"
-            };
-            return icones[status] || status;
-        }
-    </script>
+    <script src="{{ url_for('static', filename='script.js') }}"></script>
 </body>
 </html>
